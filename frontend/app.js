@@ -1,4 +1,4 @@
-// Configure Marked.js for Code Highlighting
+// Highlight.js config
 marked.setOptions({
     highlight: function(code, lang) {
         const language = hljs.getLanguage(lang) ? lang : 'plaintext';
@@ -10,72 +10,76 @@ const chatHistory = document.getElementById('chat-history');
 const userInput = document.getElementById('user-input');
 const workspace = document.getElementById('workspace');
 const modelSelect = document.getElementById('model-select');
+let currentGeneratedCode = ""; // Store code for GitHub
 
-// Auto-resize textarea
-userInput.addEventListener('input', function() {
-    this.style.height = 'auto';
-    this.style.height = (this.scrollHeight < 120 ? this.scrollHeight : 120) + 'px';
-});
+// 1. AUTO-FETCH MODELS FROM OLLAMA
+async function fetchModels() {
+    try {
+        const response = await fetch('/api/models');
+        const data = await response.json();
+        
+        modelSelect.innerHTML = ''; // Clear loading text
+        
+        if (data.models.length === 0) {
+            modelSelect.innerHTML = '<option value="">No models found</option>';
+            addMessageToChat('System', '<span class="text-yellow-500">Warning: No Ollama models found. Please run `ollama pull llama3` in Termux.</span>');
+            return;
+        }
 
-// Send on Enter (Shift+Enter for newline)
-userInput.addEventListener('keydown', function(e) {
-    if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        sendMessage();
+        data.models.forEach(model => {
+            const option = document.createElement('option');
+            option.value = model;
+            option.textContent = model;
+            modelSelect.appendChild(option);
+        });
+    } catch (error) {
+        modelSelect.innerHTML = '<option value="">Ollama Offline</option>';
     }
-});
+}
 
+// Fetch models when page loads
+window.onload = fetchModels;
+
+// 2. CHAT LOGIC
 async function sendMessage() {
     const text = userInput.value.trim();
     if (!text) return;
 
-    // Add User Message
     addMessageToChat('User', text);
     userInput.value = '';
-    userInput.style.height = 'auto';
 
-    // Show Loading
     const loadingId = addLoading();
 
     try {
-        // Fetch from FastAPI Backend
-        const response = await fetch('http://localhost:8000/chat', {
+        const response = await fetch('/api/chat', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                message: text,
-                model: modelSelect.value
-            })
+            body: JSON.stringify({ message: text, model: modelSelect.value })
         });
 
         const data = await response.json();
         document.getElementById(loadingId).remove();
-        
-        // Parse and Display Agent Response
         parseAgentResponse(data.reply);
-
     } catch (error) {
         document.getElementById(loadingId).remove();
-        addMessageToChat('System', '<span class="text-red-500">Error: Could not connect to Loagent backend. Make sure Ollama and FastAPI are running.</span>');
+        addMessageToChat('System', '<span class="text-red-500">Error connecting to backend!</span>');
     }
 }
 
 function addMessageToChat(sender, htmlContent) {
     const msgDiv = document.createElement('div');
-    msgDiv.className = 'flex gap-4 fade-in';
-    
+    msgDiv.className = 'flex gap-3 md:gap-4';
     const isUser = sender === 'User';
     const icon = isUser ? '<i class="fa-solid fa-user text-xs"></i>' : '<i class="fa-solid fa-robot text-xs"></i>';
     const bgColor = isUser ? 'bg-gray-700' : 'bg-blue-600';
 
     msgDiv.innerHTML = `
         <div class="w-8 h-8 rounded-full ${bgColor} flex items-center justify-center shrink-0 text-white">${icon}</div>
-        <div class="w-full">
+        <div class="w-full overflow-hidden">
             <p class="font-semibold ${isUser ? 'text-gray-300' : 'text-blue-400'} mb-1">${sender === 'User' ? 'You' : 'Loagent'}</p>
-            <div class="text-gray-300 text-sm leading-relaxed">${htmlContent}</div>
+            <div class="text-gray-300 text-sm leading-relaxed overflow-x-auto">${htmlContent}</div>
         </div>
     `;
-    
     chatHistory.appendChild(msgDiv);
     chatHistory.scrollTop = chatHistory.scrollHeight;
 }
@@ -85,33 +89,18 @@ function addLoading() {
     const msgDiv = document.createElement('div');
     msgDiv.id = id;
     msgDiv.className = 'flex gap-4';
-    msgDiv.innerHTML = `
-        <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0 text-white"><i class="fa-solid fa-robot text-xs"></i></div>
-        <div>
-            <p class="font-semibold text-blue-400 mb-1">Loagent</p>
-            <div class="flex gap-1 mt-2">
-                <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce"></div>
-                <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style="animation-delay: 0.2s"></div>
-                <div class="w-2 h-2 bg-gray-500 rounded-full animate-bounce" style="animation-delay: 0.4s"></div>
-            </div>
-        </div>
-    `;
+    msgDiv.innerHTML = `<div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center text-white"><i class="fa-solid fa-robot text-xs"></i></div><p class="text-blue-400 text-sm mt-1">Thinking...</p>`;
     chatHistory.appendChild(msgDiv);
-    chatHistory.scrollTop = chatHistory.scrollHeight;
     return id;
 }
 
 function parseAgentResponse(reply) {
-    // Basic Parsing: Separate thoughts, doubts, and code (Based on Backend Prompt)
     let thoughtProcess = "";
     let mainAction = reply;
 
     if(reply.includes('[THOUGHT PROCESS]')) {
-        const parts = reply.split('[/THOUGHT PROCESS]'); // Assuming backend uses closing tag, or we just split by headings.
-        // Let's implement a simpler string extraction based on headings
         const thoughtStart = reply.indexOf('[THOUGHT PROCESS]');
         const codeStart = reply.indexOf('[CODE/ACTION]');
-        
         if (thoughtStart !== -1 && codeStart !== -1) {
             thoughtProcess = reply.substring(thoughtStart + 17, codeStart).trim();
             mainAction = reply.substring(codeStart + 13).trim();
@@ -119,22 +108,12 @@ function parseAgentResponse(reply) {
     }
 
     let displayHtml = '';
-    
-    // Add Thought Process (Collapsible)
     if (thoughtProcess) {
-        displayHtml += `
-            <details class="thought-box rounded cursor-pointer mb-3">
-                <summary class="font-semibold"><i class="fa-solid fa-brain mr-2"></i>Loagent's Thought Process</summary>
-                <div class="mt-2 text-gray-400 p-2 border-l-2 border-gray-600">${marked.parse(thoughtProcess)}</div>
-            </details>
-        `;
+        displayHtml += `<details class="thought-box rounded cursor-pointer mb-3"><summary class="font-semibold"><i class="fa-solid fa-brain mr-2"></i>Thought Process</summary><div class="mt-2 text-gray-400 p-2">${marked.parse(thoughtProcess)}</div></details>`;
     }
 
-    // Add Main Content
     displayHtml += marked.parse(mainAction);
     addMessageToChat('Loagent', displayHtml);
-
-    // If there is code, update the Right Workspace
     extractCodeToWorkspace(mainAction);
 }
 
@@ -143,23 +122,71 @@ function extractCodeToWorkspace(markdownText) {
     const matches = markdownText.match(codeRegex);
     
     if (matches && matches.length > 0) {
-        workspace.innerHTML = ''; // Clear default
+        workspace.innerHTML = ''; 
         matches.forEach((codeBlock, index) => {
+            // Clean the code block for saving
+            currentGeneratedCode = codeBlock.replace(/```[a-z]*\n/i, '').replace(/```$/, '').trim();
+            
             const blockHtml = marked.parse(codeBlock);
             const wrapper = document.createElement('div');
-            wrapper.className = 'mb-6 relative';
+            wrapper.className = 'mb-6 relative w-full';
             wrapper.innerHTML = `
-                <div class="bg-[#21262d] text-xs text-gray-400 px-3 py-1 rounded-t flex justify-between items-center">
-                    <span>Generated Code ${index + 1}</span>
-                    <button class="hover:text-white" onclick="navigator.clipboard.writeText(this.parentElement.nextElementSibling.innerText); alert('Copied!')"><i class="fa-regular fa-copy"></i> Copy</button>
+                <div class="bg-[#21262d] text-xs text-gray-400 px-3 py-2 rounded-t flex justify-between items-center">
+                    <span>Code Segment</span>
+                    <div class="flex gap-3">
+                        <button class="hover:text-green-400 text-green-500 font-bold" onclick="openGithubModal()"><i class="fa-brands fa-github"></i> Deploy</button>
+                        <button class="hover:text-white" onclick="navigator.clipboard.writeText(currentGeneratedCode); alert('Copied!')"><i class="fa-regular fa-copy"></i> Copy</button>
+                    </div>
                 </div>
-                <div class="code-block m-0 rounded-t-none text-sm">${blockHtml}</div>
+                <div class="code-block m-0 rounded-t-none text-sm w-full overflow-x-auto">${blockHtml}</div>
             `;
             workspace.appendChild(wrapper);
         });
     }
 }
 
+// 3. GITHUB DEPLOYMENT LOGIC
 function openGithubModal() {
-    alert("GitHub Integration Module: Yahan user apna Personal Access Token (PAT) dalege repository connect karne ke liye. (Future update)");
+    document.getElementById('github-modal').classList.remove('hidden');
+}
+
+function closeGithubModal() {
+    document.getElementById('github-modal').classList.add('hidden');
+    document.getElementById('gh-status').classList.add('hidden');
+}
+
+async function pushCodeToGithub() {
+    const token = document.getElementById('gh-token').value;
+    const repo = document.getElementById('gh-repo').value;
+    const filepath = document.getElementById('gh-filepath').value;
+    const statusText = document.getElementById('gh-status');
+
+    if (!token || !repo || !filepath) {
+        alert("Please fill all fields!");
+        return;
+    }
+
+    statusText.classList.remove('hidden');
+    statusText.className = "text-xs text-center mt-2 text-yellow-500";
+    statusText.innerText = "Pushing to GitHub...";
+
+    try {
+        const res = await fetch('/api/github/push', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token, repo_name: repo, file_path: filepath, content: currentGeneratedCode })
+        });
+        const data = await res.json();
+        
+        if(data.status.includes("Success")) {
+            statusText.className = "text-xs text-center mt-2 text-green-500 font-bold";
+            statusText.innerText = "✅ " + data.status;
+            setTimeout(closeGithubModal, 3000);
+        } else {
+            statusText.className = "text-xs text-center mt-2 text-red-500";
+            statusText.innerText = "❌ " + data.status;
+        }
+    } catch (e) {
+        statusText.innerText = "❌ Failed to connect to backend.";
+    }
 }
