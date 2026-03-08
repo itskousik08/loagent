@@ -1,19 +1,19 @@
 #!/bin/bash
-echo "🚀 Starting Loagent Environment..."
+echo "🚀 Starting Loagent for Termux..."
 
-# Ollama check aur run
-echo "Model check kar rahe hain..."
-ollama run mistral & 
-
-# Backend start
-echo "Backend start ho raha hai..."
+# Pehle backend folder me jao
 cd backend
+
+# Required libraries install karo
+echo "📦 Installing Requirements..."
 pip install -r requirements.txt
-uvicorn main:app --reload --port 8000 &
 
-# Frontend start (Simple HTTP server for UI)
-echo "Web interface start ho raha hai..."
-cd ../frontend
-python -m http.server 3000 &
+# Sirf ek server chalana hai (FastAPI port 8000 par frontend bhi serve karega)
+echo "🌐 Starting Server..."
+uvicorn main:app --host 0.0.0.0 --port 8000 &
 
-echo "✅ Loagent is live! Browser me open karo: http://localhost:3000"
+echo "========================================="
+echo "✅ Loagent is LIVE!"
+echo "📱 Apne mobile browser me open karo:"
+echo "👉 http://localhost:8000"
+echo "========================================="
