@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Loagent - Professional AI Agent</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Marked.js (For Markdown) & Highlight.js (For Code Styling) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+    <style>
+        body { background-color: #0d1117; color: #c9d1d9; }
+        .scrollbar-hide::-webkit-scrollbar { display: none; }
+        .code-block { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-top: 10px;}
+        .thought-box { border-left: 3px solid #8b949e; background: #161b22; padding: 10px; font-size: 0.9em; color: #8b949e; margin-bottom: 10px;}
+    </style>
+</head>
+<body class="h-screen flex flex-col font-sans overflow-hidden">
+
+    <!-- Header -->
+    <header class="bg-[#161b22] border-b border-[#30363d] p-4 flex justify-between items-center z-10">
+        <div class="flex items-center gap-3">
+            <div class="bg-blue-600 w-8 h-8 rounded flex items-center justify-center font-bold text-white shadow-[0_0_10px_rgba(37,99,235,0.5)]">L</div>
+            <h1 class="text-xl font-semibold text-white tracking-wide">Loagent</h1>
+        </div>
+        <div class="flex items-center gap-4">
+            <select id="model-select" class="bg-[#0d1117] border border-[#30363d] text-sm rounded px-3 py-1.5 focus:outline-none focus:border-blue-500">
+                <option value="llama3">Llama 3 (Local)</option>
+                <option value="mistral">Mistral (Local)</option>
+                <option value="deepseek-coder">DeepSeek Coder</option>
+            </select>
+            <button class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-1.5 rounded text-sm transition font-medium shadow-md flex items-center gap-2" onclick="openGithubModal()">
+                <i class="fa-brands fa-github"></i> Connect GitHub
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="flex flex-1 overflow-hidden">
+        
+        <!-- Left Panel: Chat Interface -->
+        <div class="w-1/2 flex flex-col border-r border-[#30363d] bg-[#0d1117]">
+            <div id="chat-history" class="flex-1 overflow-y-auto p-6 space-y-6 scrollbar-hide">
+                <!-- Welcome Message -->
+                <div class="flex gap-4">
+                    <div class="w-8 h-8 rounded-full bg-blue-600 flex items-center justify-center shrink-0"><i class="fa-solid fa-robot text-xs text-white"></i></div>
+                    <div>
+                        <p class="font-semibold text-gray-200 mb-1">Loagent</p>
+                        <div class="text-gray-300 leading-relaxed text-sm">Hello bro! Main ready hu. Batao aaj kaunsa project banayen ya GitHub repository update karein?</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Input Box -->
+            <div class="p-4 bg-[#161b22] border-t border-[#30363d]">
+                <div class="relative flex items-center bg-[#0d1117] border border-[#30363d] rounded-lg p-1 focus-within:border-blue-500 transition-colors">
+                    <textarea id="user-input" rows="1" class="w-full bg-transparent text-gray-200 px-3 py-2 focus:outline-none resize-none text-sm scrollbar-hide" placeholder="Ask Loagent to build something..."></textarea>
+                    <button id="send-btn" class="bg-blue-600 text-white p-2 rounded hover:bg-blue-700 transition mr-1 w-8 h-8 flex items-center justify-center shrink-0" onclick="sendMessage()">
+                        <i class="fa-solid fa-paper-plane text-xs"></i>
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-2 text-center">Loagent can make mistakes. Verify code before deploying.</p>
+            </div>
+        </div>
+
+        <!-- Right Panel: Code Workspace & Preview -->
+        <div class="w-1/2 flex flex-col bg-[#0d1117]">
+            <!-- Tabs -->
+            <div class="flex border-b border-[#30363d] bg-[#161b22] px-4">
+                <button class="px-4 py-3 text-sm font-medium border-b-2 border-blue-500 text-blue-400">Workspace</button>
+                <button class="px-4 py-3 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-200">Terminal Log</button>
+            </div>
+            
+            <!-- Workspace Content -->
+            <div id="workspace" class="flex-1 overflow-y-auto p-6 scrollbar-hide relative">
+                <div class="absolute inset-0 flex flex-col items-center justify-center text-gray-600">
+                    <i class="fa-solid fa-code text-4xl mb-3"></i>
+                    <p class="text-sm">Generated code will appear here</p>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Custom Script -->
+    <script src="app.js"></script>
+</body>
+</html>
